@@ -1,356 +1,524 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>MGR Attendance Dashboard</title>
-  <!-- Google Identity Services Library -->
-  <script src="https://accounts.google.com/gsi/client" async defer></script>
-  <style>
-    :root {
-      --bg-color: #f4f6f8;
-      --card-bg: #ffffff;
-      --primary: #2563eb;
-      --primary-hover: #1d4ed8;
-      --text: #1f2937;
-      --text-muted: #6b7280;
-      --border: #e5e7eb;
-      --present: #10b981;
-      --absent: #ef4444;
-      --od: #f59e0b;
-    }
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>MGR Attendance Dashboard</title>
+    <!-- Google Identity Services Library -->
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+        body { background-color: #080C16; color: #E5E7EB; min-height: 100vh; padding-bottom: 90px; }
+        
+        header { background-color: #111724; padding: 15px; border-bottom: 1px solid #27272A; display: flex; justify-content: space-between; align-items: center; }
+        .logo-text { font-size: 16px; font-weight: 900; background: linear-gradient(90deg, #FF1493, #1E90FF); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .sub-logo { font-size: 10px; color: #9CA3AF; }
+        
+        .container { max-width: 450px; margin: 0 auto; padding: 15px; display: flex; flex-direction: column; gap: 15px; }
+        .card { background-color: #111724; border: 1px solid #27272A; border-radius: 16px; padding: 15px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5); }
+        
+        .metrics-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; font-size: 11px; font-weight: bold; color: #9CA3AF; text-transform: uppercase; }
+        .status-badge { padding: 2px 8px; font-weight: bold; font-size: 10px; border-radius: 20px; }
+        .status-safe { background-color: rgba(16, 185, 129, 0.1); color: #34D399; border: 1px solid rgba(52, 211, 153, 0.2); }
+        .status-critical { background-color: rgba(244, 63, 94, 0.1); color: #FB7185; border: 1px solid rgba(251, 113, 133, 0.2); }
+        
+        .metrics-flex { display: flex; align-items: center; background-color: rgba(0,0,0,0.2); padding: 12px; border-radius: 12px; }
+        .donut-box { position: relative; width: 70px; height: 70px; display: flex; align-items: center; justify-content: center; }
+        .donut-svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+        .donut-text { position: absolute; font-size: 16px; font-weight: 900; color: white; }
+        .metrics-info { flex: 1; padding-left: 15px; display: flex; flex-direction: column; gap: 6px; }
+        .bar-track { width: 100%; background-color: #27272A; height: 4px; border-radius: 10px; overflow: hidden; }
+        .bar-fill { height: 100%; background-color: #1E90FF; width: 0%; transition: width 0.3s ease; }
+        
+        .subject-card { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; }
+        .sub-row { background-color: #111724; border: 1px solid #27272A; border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+        .sub-top { display: flex; justify-content: space-between; align-items: flex-start; }
+        .sub-code { font-size: 9px; color: #6B7280; font-family: monospace; font-weight: bold; }
+        .sub-title { font-size: 13px; font-weight: bold; color: white; margin-top: 1px; }
+        .sub-staff { font-size: 11px; color: #9CA3AF; margin-top: 2px; }
+        .sub-pct { font-size: 14px; font-weight: 900; }
+        .sub-count { font-size: 9px; color: #6B7280; text-align: right; }
+        
+        .form-group { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
+        .input-label { font-size: 11px; font-weight: bold; color: #D1D5DB; }
+        .app-input { width: 100%; background-color: #192135; border: 1px solid #3F3F46; border-radius: 10px; padding: 9px; color: white; font-size: 12px; outline: none; }
+        .app-input:focus { border-color: #FF1493; }
+        
+        .checkbox-group { display: flex; flex-direction: column; gap: 8px; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 10px; border: 1px solid #27272A; }
+        .checkbox-item { display: flex; align-items: center; gap: 8px; font-size: 11px; cursor: pointer; color: #D1D5DB; }
+        .checkbox-item input { width: 16px; height: 16px; accent-color: #FF1493; }
 
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-    }
+        .btn-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
+        .mark-btn { border: none; font-size: 11px; font-weight: 900; padding: 10px; border-radius: 8px; cursor: pointer; text-transform: uppercase; transition: 0.1s; }
+        .mark-btn.present { background-color: rgba(52, 211, 153, 0.15); color: #34D399; border: 1px solid rgba(52, 211, 153, 0.3); }
+        .mark-btn.absent { background-color: rgba(251, 113, 133, 0.15); color: #FB7185; border: 1px solid rgba(251, 113, 133, 0.3); }
+        .mark-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+        .mark-btn:active:not(:disabled) { transform: scale(0.96); }
 
-    body {
-      background-color: var(--bg-color);
-      color: var(--text);
-      padding: 1rem;
-      max-width: 800px;
-      margin: 0 auto;
-    }
+        .action-btn { width: 100%; background: linear-gradient(90deg, rgba(251,20,147,0.15), rgba(30,144,255,0.15)); border: 1px solid rgba(251,20,147,0.3); color: #FF1493; font-size: 11px; font-weight: bold; padding: 10px; border-radius: 10px; cursor: pointer; margin-top: 10px; }
 
-    header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 1.5rem;
-      padding-bottom: 1rem;
-      border-bottom: 1px solid var(--border);
-    }
+        .rem-item { background: rgba(0,0,0,0.2); border: 1px solid #27272A; border-radius: 12px; padding: 12px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; }
+        .tag-pending { color: #FBBF24; background-color: rgba(251, 191, 36, 0.1); border: 1px solid rgba(251, 191, 36, 0.2); padding: 2px 6px; border-radius: 4px; font-size: 9px; font-weight: bold; }
+        .tag-done { color: #34D399; background-color: rgba(52, 211, 153, 0.1); border: 1px solid rgba(52, 211, 153, 0.2); padding: 2px 6px; border-radius: 4px; font-size: 9px; font-weight: bold; }
 
-    h1 {
-      font-size: 1.5rem;
-      font-weight: 700;
-    }
+        .history-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid rgba(39,39,42,.5); font-size: 10px; color: #D1D5DB; }
 
-    .btn {
-      background-color: var(--primary);
-      color: white;
-      border: none;
-      padding: 0.6rem 1rem;
-      border-radius: 8px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: background 0.2s ease;
-      display: inline-flex;
-      align-items: center;
-      gap: 0.5rem;
-    }
+        nav { position: fixed; bottom: 0; left: 0; right: 0; background-color: rgba(17, 23, 36, 0.95); backdrop-filter: blur(10px); border-top: 1px solid #27272A; padding: 10px; display: flex; justify-content: space-around; max-width: 450px; margin: 0 auto; border-radius: 16px 16px 0 0; }
+        .nav-item { display: flex; flex-direction: column; align-items: center; gap: 4px; background: none; border: none; color: #6B7280; font-size: 9px; font-weight: bold; text-transform: uppercase; cursor: pointer; }
+        .nav-item.active { color: #FF1493; }
+        .nav-icon { font-size: 16px; }
 
-    .btn:hover {
-      background-color: var(--primary-hover);
-    }
-
-    .btn-secondary {
-      background-color: transparent;
-      color: var(--text);
-      border: 1px solid var(--border);
-    }
-
-    .btn-secondary:hover {
-      background-color: var(--border);
-    }
-
-    .stats-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-      gap: 1rem;
-      margin-bottom: 1.5rem;
-    }
-
-    .stat-card {
-      background: var(--card-bg);
-      padding: 1rem;
-      border-radius: 12px;
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-      border: 1px solid var(--border);
-    }
-
-    .stat-card .label {
-      font-size: 0.875rem;
-      color: var(--text-muted);
-      margin-bottom: 0.25rem;
-    }
-
-    .stat-card .value {
-      font-size: 1.5rem;
-      font-weight: 700;
-    }
-
-    .card {
-      background: var(--card-bg);
-      padding: 1.5rem;
-      border-radius: 12px;
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-      border: 1px solid var(--border);
-      margin-bottom: 1.5rem;
-    }
-
-    .actions {
-      display: flex;
-      gap: 1rem;
-      flex-wrap: wrap;
-      margin-top: 1rem;
-    }
-
-    .btn-present { background-color: var(--present); }
-    .btn-absent { background-color: var(--absent); }
-    .btn-od { background-color: var(--od); }
-
-    .status-banner {
-      font-size: 0.85rem;
-      color: var(--text-muted);
-      margin-top: 0.5rem;
-    }
-
-    ul.logs {
-      list-style: none;
-      max-height: 250px;
-      overflow-y: auto;
-    }
-
-    ul.logs li {
-      display: flex;
-      justify-content: space-between;
-      padding: 0.75rem 0;
-      border-bottom: 1px solid var(--border);
-      font-size: 0.9rem;
-    }
-
-    ul.logs li:last-child {
-      border-bottom: none;
-    }
-
-    .badge {
-      padding: 0.2rem 0.5rem;
-      border-radius: 4px;
-      font-size: 0.75rem;
-      font-weight: 600;
-      color: white;
-    }
-
-    .badge-present { background: var(--present); }
-    .badge-absent { background: var(--absent); }
-    .badge-od { background: var(--od); }
-  </style>
+        .tab-panel { display: none; }
+        .tab-panel.active { display: block; }
+    </style>
 </head>
 <body>
 
-  <header>
-    <h1>MGR Attendance</h1>
-    <button id="auth-btn" class="btn btn-secondary" onclick="handleAuthClick()">
-      🔑 Sync Google Drive
-    </button>
-  </header>
+    <header>
+        <div>
+            <div class="logo-text">MGR Attendance Dashboard</div>
+            <div class="sub-logo">Dr. M.G.R. Institute • Chennai</div>
+        </div>
+    </header>
 
-  <div class="stats-grid">
-    <div class="stat-card">
-      <div class="label">Total Classes</div>
-      <div class="value" id="stat-total">0</div>
+    <div class="container">
+
+        <!-- 1. HOME TAB -->
+        <div id="panel-home" class="tab-panel active">
+            <div class="card">
+                <div class="metrics-header">
+                    <span>Attendance Health</span>
+                    <span id="overall-status-badge" class="status-badge status-safe">Safe Zone</span>
+                </div>
+                <div class="metrics-flex">
+                    <div class="donut-box">
+                        <svg class="donut-svg">
+                            <circle stroke="#27272A" stroke-width="6" fill="transparent" r="28" cx="35" cy="35"/>
+                            <circle id="donut-progress" stroke="#FF1493" stroke-width="6" stroke-linecap="round" fill="transparent" r="28" cx="35" cy="35" stroke-dasharray="175.93" stroke-dashoffset="175.93"/>
+                        </svg>
+                        <div class="donut-text" id="overall-pct">0%</div>
+                    </div>
+                    <div class="metrics-info">
+                        <div style="display:flex; justify-content:space-between; font-size:11px; color:#9CA3AF;">
+                            <span>Mandate</span>
+                            <span style="color:white; font-weight:bold;">75% Target</span>
+                        </div>
+                        <div class="bar-track">
+                            <div class="bar-fill" id="overall-bar"></div>
+                        </div>
+                        <div style="font-size:10px; color:#9CA3AF; line-height:1.3;">Buffer: <span id="buffer-classes-count" style="color:#FF1493; font-weight:bold;">0</span> sessions safe to skip.</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="metrics-header" style="margin-top: 15px;">Subject Overview</div>
+            <div id="subject-overview-container" class="subject-card"></div>
+        </div>
+
+        <!-- 2. ATTENDANCE TAB -->
+        <div id="panel-attendance" class="tab-panel">
+            <div class="card">
+                <div class="metrics-header">
+                    <span>Mark Daily Sessions</span>
+                    <span id="attendance-status-badge" class="status-badge status-safe">Ready</span>
+                </div>
+
+                <div class="form-group">
+                    <label class="input-label">Select Date:</label>
+                    <input type="date" id="att-date" class="app-input" onchange="checkDateLockStatus()">
+                </div>
+
+                <div class="form-group">
+                    <label class="input-label">Select Subject (Manual):</label>
+                    <select id="att-subject" class="app-input"></select>
+                </div>
+
+                <div class="form-group">
+                    <label class="input-label">Sessions Held:</label>
+                    <div class="checkbox-group">
+                        <label class="checkbox-item">
+                            <input type="checkbox" id="chk-s1" checked>
+                            <span>Session 1 (7:00 PM - 8:10 PM)</span>
+                        </label>
+                        <label class="checkbox-item">
+                            <input type="checkbox" id="chk-s2">
+                            <span>Session 2 (8:30 PM - 9:30 PM)</span>
+                        </label>
+                    </div>
+                </div>
+
+                <div id="lock-warning" style="display:none; font-size:10px; color:#FB7185; background:rgba(251,113,133,0.1); padding:8px; border-radius:8px; border:1px solid rgba(251,113,133,0.2); margin-bottom:10px;">
+                    ⚠️ Attendance already logged for this date. Reset below to repeat or modify.
+                </div>
+
+                <div class="btn-grid">
+                    <button id="btn-present" class="mark-btn present" onclick="markAttendance('Present')">✓ Present</button>
+                    <button id="btn-absent" class="mark-btn absent" onclick="markAttendance('Absent')">✗ Absent</button>
+                </div>
+
+                <button onclick="resetDayAttendance()" class="action-btn" style="color:#FB7185; border-color:rgba(251,113,133,.3); margin-top:10px;">Reset Date Attendance</button>
+            </div>
+
+            <div class="card" style="margin-top: 12px;">
+                <div class="metrics-header">Recent Logs</div>
+                <div id="attendance-history-list"></div>
+            </div>
+        </div>
+
+        <!-- 3. REMINDERS & TARGETS TAB -->
+        <div id="panel-reminders" class="tab-panel">
+            <div class="card">
+                <div class="metrics-header">Add Fee / Target Reminder</div>
+                <div class="form-group">
+                    <label class="input-label">Title:</label>
+                    <input type="text" id="rem-title" class="app-input" placeholder="e.g. Tuition Fee Term 2">
+                </div>
+                <div class="form-group">
+                    <label class="input-label">Target Date:</label>
+                    <input type="date" id="rem-date" class="app-input">
+                </div>
+                <button onclick="addReminder()" class="action-btn">Set Target Reminder</button>
+            </div>
+
+            <div class="metrics-header" style="margin-top: 15px;">Active Reminders</div>
+            <div id="reminders-list"></div>
+        </div>
+
+        <!-- 4. CAT EXAMS & DRIVE SYNC TAB -->
+        <div id="panel-exams" class="tab-panel">
+            <div class="card">
+                <div class="metrics-header">Academic Schedule</div>
+                <div style="font-size: 11px; color: #9CA3AF; margin-bottom: 10px;">Tracking upcoming CAT & Semester examinations.</div>
+                
+                <div class="rem-item">
+                    <div>
+                        <div style="font-size:12px; font-weight:bold; color:white;">CAT 1 Examinations</div>
+                        <div style="font-size:10px; color:#9CA3AF;">Expected: Next Month</div>
+                    </div>
+                    <span class="tag-pending">Scheduled</span>
+                </div>
+
+                <div class="rem-item">
+                    <div>
+                        <div style="font-size:12px; font-weight:bold; color:white;">CAT 2 Examinations</div>
+                        <div style="font-size:10px; color:#9CA3AF;">Expected: Following Month</div>
+                    </div>
+                    <span class="tag-pending">Scheduled</span>
+                </div>
+            </div>
+
+            <!-- Strategy 2: GIS OAuth Auto-Sync UI -->
+            <div class="card" style="margin-top: 12px;">
+                <div class="metrics-header">Cloud Backup & Sync</div>
+                <div style="font-size: 10px; color: #9CA3AF; margin-bottom: 10px;">
+                    Connect your Google Account to automatically store your attendance records, reminders, and CAT exam schedules securely in your private Google Drive app folder.
+                </div>
+                
+                <div id="drive-status" style="font-size: 11px; color: #FBBF24; margin-bottom: 10px;">Status: Disconnected</div>
+
+                <button id="btn-google-auth" onclick="handleAuthClick()" class="action-btn" style="background: linear-gradient(90deg, #1E90FF, #34D399); color: white;">🔑 Sign in with Google Drive</button>
+                <button id="btn-manual-sync" onclick="syncToDriveBackground()" class="action-btn" style="display:none; margin-top:6px;">🔄 Force Sync Now</button>
+            </div>
+        </div>
+
     </div>
-    <div class="stat-card">
-      <div class="label">Attended</div>
-      <div class="value" id="stat-attended">0</div>
-    </div>
-    <div class="stat-card">
-      <div class="label">Percentage</div>
-      <div class="value" id="stat-pct">0%</div>
-    </div>
-  </div>
 
-  <div class="card">
-    <h2>Mark Today's Status</h2>
-    <div class="actions">
-      <button class="btn btn-present" onclick="markAttendance('Present')">Present</button>
-      <button class="btn btn-absent" onclick="markAttendance('Absent')">Absent</button>
-      <button class="btn btn-od" onclick="markAttendance('On Duty')">On Duty</button>
-    </div>
-    <div class="status-banner" id="sync-status">Status: Local storage active</div>
-  </div>
+    <!-- Fixed Bottom Router -->
+    <nav>
+        <button id="nav-home" onclick="switchTab('home')" class="nav-item active">
+            <div class="nav-icon">🏠</div>
+            <span>Home</span>
+        </button>
+        <button id="nav-attendance" onclick="switchTab('attendance')" class="nav-item">
+            <div class="nav-icon">📝</div>
+            <span>Attendance</span>
+        </button>
+        <button id="nav-reminders" onclick="switchTab('reminders')" class="nav-item">
+            <div class="nav-icon">🔔</div>
+            <span>Reminders</span>
+        </button>
+        <button id="nav-exams" onclick="switchTab('exams')" class="nav-item">
+            <div class="nav-icon">📚</div>
+            <span>CAT Exams</span>
+        </button>
+    </nav>
 
-  <div class="card">
-    <h2>Attendance History</h2>
-    <ul class="logs" id="history-list">
-      <!-- Dynamic list -->
-    </ul>
-  </div>
+    <script>
+        // Strategy 2 API Setup (Replace with your Client ID from Google Cloud Console)
+        const CLIENT_ID = '323739514871-470iivf0bede8hpiitjnir6d1hovs1lb.apps.googleusercontent.com';
+        const SCOPES = 'https://www.googleapis.com/auth/drive.appdata';
 
-  <script>
-    // ==========================================
-    // CONFIGURATION
-    // Replace the string below with your Client ID from Google Cloud Console
-    // ==========================================
-    const CLIENT_ID = '323739514871-470iivf0bede8hpiitjnir6d1hovs1lb.apps.googleusercontent.com';
-    const SCOPES = 'https://www.googleapis.com/auth/drive.appdata';
+        let tokenClient;
+        let accessToken = null;
+        let driveFileId = null;
 
-    let tokenClient;
-    let accessToken = null;
+        const subjects = [
+            { id: "s1", code: "EBEC22008", name: "Communication Networks", staff: "Mrs.N.S.Shinija" },
+            { id: "s2", code: "EBEC22011", name: "Sensors and Robotics", staff: "Mr.R.G.Balaji" },
+            { id: "s3", code: "EBEC22020", name: "VLSI & Embedded Systems Design", staff: "Ms.C.Helen Prema" },
+            { id: "s4", code: "EBEC22E08", name: "Advanced Microprocessors", staff: "Mr.B.Ramesh" }
+        ];
 
-    // App State stored in Local Storage
-    let state = JSON.parse(localStorage.getItem('mgr_attendance_data')) || {
-      logs: []
-    };
+        let logs = JSON.parse(localStorage.getItem("mgr_pro_logs")) || [];
+        let reminders = JSON.parse(localStorage.getItem("mgr_pro_reminders")) || [];
 
-    function saveState() {
-      localStorage.setItem('mgr_attendance_data', JSON.stringify(state));
-      render();
-      if (accessToken) {
-        syncToDrive();
-      }
-    }
+        document.addEventListener("DOMContentLoaded", () => {
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById("att-date").value = today;
+            document.getElementById("rem-date").value = today;
 
-    function render() {
-      const logs = state.logs;
-      const total = logs.length;
-      const attended = logs.filter(l => l.status === 'Present' || l.status === 'On Duty').length;
-      const pct = total > 0 ? ((attended / total) * 100).toFixed(1) : 0;
+            const subSelect = document.getElementById("att-subject");
+            subjects.forEach(sub => {
+                const opt = document.createElement("option");
+                opt.value = sub.id;
+                opt.textContent = `${sub.code} - ${sub.name}`;
+                subSelect.appendChild(opt);
+            });
 
-      document.getElementById('stat-total').innerText = total;
-      document.getElementById('stat-attended').innerText = attended;
-      document.getElementById('stat-pct').innerText = `${pct}%`;
+            checkDateLockStatus();
+            updateUI();
+            initGoogleAuth();
+        });
 
-      const list = document.getElementById('history-list');
-      list.innerHTML = '';
-      
-      logs.slice().reverse().forEach(log => {
-        const li = document.createElement('li');
-        const badgeClass = log.status === 'Present' ? 'badge-present' : (log.status === 'Absent' ? 'badge-absent' : 'badge-od');
-        li.innerHTML = `
-          <span>${log.date}</span>
-          <span class="badge ${badgeClass}">${log.status}</span>
-        `;
-        list.appendChild(li);
-      });
-    }
-
-    function markAttendance(status) {
-      const today = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-      state.logs.push({ date: today, status: status, timestamp: Date.now() });
-      saveState();
-    }
-
-    // Google OAuth 2.0 Client Setup
-    window.onload = () => {
-      render();
-      if (typeof google !== 'undefined') {
-        tokenClient = google.accounts.oauth2.initTokenClient({
-          client_id: CLIENT_ID,
-          scope: SCOPES,
-          callback: async (response) => {
-            if (response.error !== undefined) {
-              throw response;
+        /* --- Strategy 2: Google Identity Services Engine --- */
+        function initGoogleAuth() {
+            if (window.google) {
+                tokenClient = google.accounts.oauth2.initTokenClient({
+                    client_id: CLIENT_ID,
+                    scope: SCOPES,
+                    callback: async (response) => {
+                        if (response.error) return alert("Google Auth Failed: " + response.error);
+                        accessToken = response.access_token;
+                        document.getElementById("drive-status").innerText = "Status: Connected to Google Drive ✓";
+                        document.getElementById("drive-status").style.color = "#34D399";
+                        document.getElementById("btn-google-auth").style.display = "none";
+                        document.getElementById("btn-manual-sync").style.display = "block";
+                        await loadFromDriveOrCreate();
+                    },
+                });
             }
-            accessToken = response.access_token;
-            document.getElementById('auth-btn').innerText = '✅ Drive Connected';
-            document.getElementById('sync-status').innerText = 'Status: Auto-syncing to Google Drive';
-            await pullFromDrive();
-          },
-        });
-      }
-    };
-
-    function handleAuthClick() {
-      if (!tokenClient) {
-        alert('Google Auth is loading or CLIENT_ID is unconfigured.');
-        return;
-      }
-      if (accessToken === null) {
-        tokenClient.requestAccessToken({ prompt: 'consent' });
-      } else {
-        tokenClient.requestAccessToken({ prompt: '' });
-      }
-    }
-
-    // Google Drive AppData Folder Sync
-    async function syncToDrive() {
-      if (!accessToken) return;
-      document.getElementById('sync-status').innerText = 'Status: Syncing...';
-
-      try {
-        const searchRes = await fetch("https://www.googleapis.com/drive/v3/files?spaces=appDataFolder", {
-          headers: { Authorization: `Bearer ${accessToken}` }
-        });
-        const searchData = await searchRes.json();
-        const existingFile = searchData.files && searchData.files.find(f => f.name === 'mgr_attendance.json');
-
-        const fileContent = JSON.stringify(state);
-        const file = new Blob([fileContent], { type: 'application/json' });
-
-        if (existingFile) {
-          await fetch(`https://www.googleapis.com/upload/drive/v3/files/${existingFile.id}?uploadType=media`, {
-            method: 'PATCH',
-            headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
-            body: file
-          });
-        } else {
-          const metadata = { name: 'mgr_attendance.json', parents: ['appDataFolder'] };
-          const form = new FormData();
-          form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
-          form.append('file', file);
-
-          await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
-            method: 'POST',
-            headers: { Authorization: `Bearer ${accessToken}` },
-            body: form
-          });
         }
-        document.getElementById('sync-status').innerText = 'Status: Synced to Google Drive';
-      } catch (err) {
-        console.error(err);
-        document.getElementById('sync-status').innerText = 'Status: Local storage active (Drive sync failed)';
-      }
-    }
 
-    async function pullFromDrive() {
-      if (!accessToken) return;
-      try {
-        const searchRes = await fetch("https://www.googleapis.com/drive/v3/files?spaces=appDataFolder", {
-          headers: { Authorization: `Bearer ${accessToken}` }
-        });
-        const searchData = await searchRes.json();
-        const existingFile = searchData.files && searchData.files.find(f => f.name === 'mgr_attendance.json');
-
-        if (existingFile) {
-          const fileRes = await fetch(`https://www.googleapis.com/drive/v3/files/${existingFile.id}?alt=media`, {
-            headers: { Authorization: `Bearer ${accessToken}` }
-          });
-          const remoteState = await fileRes.json();
-          if (remoteState && remoteState.logs) {
-            state = remoteState;
-            localStorage.setItem('mgr_attendance_data', JSON.stringify(state));
-            render();
-          }
+        function handleAuthClick() {
+            if (!tokenClient) return alert("Google Library loading... Try again in a moment.");
+            tokenClient.requestAccessToken({ prompt: 'consent' });
         }
-      } catch (err) {
-        console.error("Cloud pull error:", err);
-      }
-    }
-  </script>
+
+        async function loadFromDriveOrCreate() {
+            if (!accessToken) return;
+            try {
+                // Check if file exists in hidden appDataFolder
+                const searchRes = await fetch("https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&q=name='mgr_attendance_backup.json'", {
+                    headers: { Authorization: `Bearer ${accessToken}` }
+                });
+                const searchData = await searchRes.json();
+
+                if (searchData.files && searchData.files.length > 0) {
+                    driveFileId = searchData.files[0].id;
+                    const fileRes = await fetch(`https://www.googleapis.com/drive/v3/files/${driveFileId}?alt=media`, {
+                        headers: { Authorization: `Bearer ${accessToken}` }
+                    });
+                    const content = await fileRes.json();
+                    if (content.logs) logs = content.logs;
+                    if (content.reminders) reminders = content.reminders;
+                    saveLocal();
+                    updateUI();
+                } else {
+                    await createDriveFile();
+                }
+            } catch (err) {
+                console.error("Drive Sync Error:", err);
+            }
+        }
+
+        async function createDriveFile() {
+            const metadata = { name: 'mgr_attendance_backup.json', parents: ['appDataFolder'] };
+            const form = new FormData();
+            form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
+            form.append('file', new Blob([JSON.stringify({ logs, reminders })], { type: 'application/json' }));
+
+            const res = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
+                method: 'POST',
+                headers: { Authorization: `Bearer ${accessToken}` },
+                body: form
+            });
+            const data = await res.json();
+            driveFileId = data.id;
+        }
+
+        async function syncToDriveBackground() {
+            if (!accessToken || !driveFileId) return;
+            try {
+                await fetch(`https://www.googleapis.com/upload/drive/v3/files/${driveFileId}?uploadType=media`, {
+                    method: 'PATCH',
+                    headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ logs, reminders, lastSync: new Date().toISOString() })
+                });
+            } catch (e) {
+                console.error("Auto Sync Background Error", e);
+            }
+        }
+
+        /* --- App Business Logic --- */
+        function switchTab(tabKey) {
+            document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+            document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+            document.getElementById(`panel-${tabKey}`).classList.add('active');
+            document.getElementById(`nav-${tabKey}`).classList.add('active');
+        }
+
+        function checkDateLockStatus() {
+            const dateVal = document.getElementById("att-date").value;
+            const existingLogs = logs.filter(l => l.date === dateVal);
+            const isLocked = existingLogs.length > 0;
+
+            document.getElementById("btn-present").disabled = isLocked;
+            document.getElementById("btn-absent").disabled = isLocked;
+            document.getElementById("lock-warning").style.display = isLocked ? "block" : "none";
+            document.getElementById("attendance-status-badge").innerText = isLocked ? "Locked" : "Ready";
+            document.getElementById("attendance-status-badge").className = isLocked ? "status-badge status-critical" : "status-badge status-safe";
+        }
+
+        function markAttendance(status) {
+            const dateVal = document.getElementById("att-date").value;
+            if (!dateVal) return alert("Select date");
+
+            const chk1 = document.getElementById("chk-s1");
+            const chk2 = document.getElementById("chk-s2");
+            if (!chk1.checked && !chk2.checked) return alert("Select at least one session checkbox");
+
+            const subId = document.getElementById("att-subject").value;
+            const subObj = subjects.find(s => s.id === subId);
+
+            if (chk1.checked) logs.push({ id: Date.now() + 1, date: dateVal, session: "Session 1", subId, subName: subObj.name, status });
+            if (chk2.checked) logs.push({ id: Date.now() + 2, date: dateVal, session: "Session 2", subId, subName: subObj.name, status });
+
+            saveLocal();
+            checkDateLockStatus();
+            updateUI();
+            syncToDriveBackground();
+        }
+
+        function resetDayAttendance() {
+            const dateVal = document.getElementById("att-date").value;
+            logs = logs.filter(l => l.date !== dateVal);
+            saveLocal();
+            checkDateLockStatus();
+            updateUI();
+            syncToDriveBackground();
+        }
+
+        function addReminder() {
+            const title = document.getElementById("rem-title").value;
+            const date = document.getElementById("rem-date").value;
+            if (!title || !date) return alert("Enter title and date");
+
+            reminders.push({ id: Date.now(), title, date, done: false });
+            document.getElementById("rem-title").value = "";
+            saveLocal();
+            renderReminders();
+            syncToDriveBackground();
+        }
+
+        function toggleReminder(id) {
+            const rem = reminders.find(r => r.id === id);
+            if (rem) rem.done = !rem.done;
+            saveLocal();
+            renderReminders();
+            syncToDriveBackground();
+        }
+
+        function saveLocal() {
+            localStorage.setItem("mgr_pro_logs", JSON.stringify(logs));
+            localStorage.setItem("mgr_pro_reminders", JSON.stringify(reminders));
+        }
+
+        function updateUI() {
+            const subContainer = document.getElementById("subject-overview-container");
+            subContainer.innerHTML = "";
+            let totalAttended = 0, totalClasses = 0;
+
+            subjects.forEach(sub => {
+                const subLogs = logs.filter(l => l.subId === sub.id);
+                const attended = subLogs.filter(l => l.status === "Present").length;
+                const total = subLogs.length;
+                const pct = total > 0 ? Math.round((attended / total) * 100) : 0;
+
+                totalAttended += attended;
+                totalClasses += total;
+
+                subContainer.innerHTML += `
+                    <div class="sub-row">
+                        <div class="sub-top">
+                            <div>
+                                <span class="sub-code">${sub.code}</span>
+                                <div class="sub-title">${sub.name}</div>
+                                <div class="sub-staff">👤 ${sub.staff}</div>
+                            </div>
+                            <div>
+                                <div class="sub-pct" style="color: ${pct >= 75 ? '#34D399' : '#FB7185'};">${pct}%</div>
+                                <div class="sub-count">${attended}/${total} Classes</div>
+                            </div>
+                        </div>
+                        <div class="bar-track"><div class="bar-fill" style="width: ${pct}%;"></div></div>
+                    </div>
+                `;
+            });
+
+            const overallPct = totalClasses > 0 ? Math.round((totalAttended / totalClasses) * 100) : 0;
+            document.getElementById("overall-pct").innerText = `${overallPct}%`;
+            document.getElementById("overall-bar").style.width = `${overallPct}%`;
+            document.getElementById("donut-progress").style.strokeDashoffset = 175.93 - (overallPct / 100) * 175.93;
+
+            const badge = document.getElementById("overall-status-badge");
+            badge.innerText = overallPct >= 75 ? "Safe Zone" : "Critical Zone";
+            badge.className = overallPct >= 75 ? "status-badge status-safe" : "status-badge status-critical";
+
+            const safeSkips = Math.max(0, Math.floor((totalAttended - 0.75 * totalClasses) / 0.75));
+            document.getElementById("buffer-classes-count").innerText = safeSkips;
+
+            const historyList = document.getElementById("attendance-history-list");
+            historyList.innerHTML = "";
+            const sortedLogs = [...logs].sort((a,b) => new Date(b.date) - new Date(a.date));
+
+            if (!sortedLogs.length) {
+                historyList.innerHTML = `<div style="font-size:10px; color:#6B7280; padding:8px 0;">No attendance logged yet.</div>`;
+            } else {
+                sortedLogs.slice(0, 8).forEach(l => {
+                    historyList.innerHTML += `
+                        <div class="history-row">
+                            <span>${l.date} (${l.session})</span>
+                            <span style="font-weight:bold; color:${l.status === 'Present' ? '#34D399' : '#FB7185'}">${l.status}</span>
+                        </div>
+                    `;
+                });
+            }
+
+            renderReminders();
+        }
+
+        function renderReminders() {
+            const remList = document.getElementById("reminders-list");
+            remList.innerHTML = "";
+            if (!reminders.length) {
+                remList.innerHTML = `<div style="font-size:10px; color:#6B7280;">No active reminders set.</div>`;
+                return;
+            }
+
+            reminders.forEach(r => {
+                remList.innerHTML += `
+                    <div class="rem-item">
+                        <div>
+                            <div style="font-size:12px; font-weight:bold; color:white;">${r.title}</div>
+                            <div style="font-size:10px; color:#9CA3AF;">Target: ${r.date}</div>
+                        </div>
+                        <button onclick="toggleReminder(${r.id})" class="${r.done ? 'tag-done' : 'tag-pending'}" style="background:none; border:none; cursor:pointer;">
+                            ${r.done ? '✓ Cleared' : '⏳ Pending'}
+                        </button>
+                    </div>
+                `;
+            });
+        }
+    </script>
 </body>
 </html>
