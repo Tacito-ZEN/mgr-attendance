@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MGR Attendance Dashboard</title>
+  <!-- Google Identity Services Library -->
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <style>
+    :root {
+      --bg-color: #f4f6f8;
+      --card-bg: #ffffff;
+      --primary: #2563eb;
+      --primary-hover: #1d4ed8;
+      --text: #1f2937;
+      --text-muted: #6b7280;
+      --border: #e5e7eb;
+      --present: #10b981;
+      --absent: #ef4444;
+      --od: #f59e0b;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    }
+
+    body {
+      background-color: var(--bg-color);
+      color: var(--text);
+      padding: 1rem;
+      max-width: 800px;
+      margin: 0 auto;
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1.5rem;
+      padding-bottom: 1rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    h1 {
+      font-size: 1.5rem;
+      font-weight: 700;
+    }
+
+    .btn {
+      background-color: var(--primary);
+      color: white;
+      border: none;
+      padding: 0.6rem 1rem;
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .btn:hover {
+      background-color: var(--primary-hover);
+    }
+
+    .btn-secondary {
+      background-color: transparent;
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+
+    .btn-secondary:hover {
+      background-color: var(--border);
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .stat-card {
+      background: var(--card-bg);
+      padding: 1rem;
+      border-radius: 12px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+      border: 1px solid var(--border);
+    }
+
+    .stat-card .label {
+      font-size: 0.875rem;
+      color: var(--text-muted);
+      margin-bottom: 0.25rem;
+    }
+
+    .stat-card .value {
+      font-size: 1.5rem;
+      font-weight: 700;
+    }
+
+    .card {
+      background: var(--card-bg);
+      padding: 1.5rem;
+      border-radius: 12px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+      border: 1px solid var(--border);
+      margin-bottom: 1.5rem;
+    }
+
+    .actions {
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+      margin-top: 1rem;
+    }
+
+    .btn-present { background-color: var(--present); }
+    .btn-absent { background-color: var(--absent); }
+    .btn-od { background-color: var(--od); }
+
+    .status-banner {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      margin-top: 0.5rem;
+    }
+
+    ul.logs {
+      list-style: none;
+      max-height: 250px;
+      overflow-y: auto;
+    }
+
+    ul.logs li {
+      display: flex;
+      justify-content: space-between;
+      padding: 0.75rem 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.9rem;
+    }
+
+    ul.logs li:last-child {
+      border-bottom: none;
+    }
+
+    .badge {
+      padding: 0.2rem 0.5rem;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: white;
+    }
+
+    .badge-present { background: var(--present); }
+    .badge-absent { background: var(--absent); }
+    .badge-od { background: var(--od); }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>MGR Attendance</h1>
+    <button id="auth-btn" class="btn btn-secondary" onclick="handleAuthClick()">
+      🔑 Sync Google Drive
+    </button>
+  </header>
+
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="label">Total Classes</div>
+      <div class="value" id="stat-total">0</div>
+    </div>
+    <div class="stat-card">
+      <div class="label">Attended</div>
+      <div class="value" id="stat-attended">0</div>
+    </div>
+    <div class="stat-card">
+      <div class="label">Percentage</div>
+      <div class="value" id="stat-pct">0%</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Mark Today's Status</h2>
+    <div class="actions">
+      <button class="btn btn-present" onclick="markAttendance('Present')">Present</button>
+      <button class="btn btn-absent" onclick="markAttendance('Absent')">Absent</button>
+      <button class="btn btn-od" onclick="markAttendance('On Duty')">On Duty</button>
+    </div>
+    <div class="status-banner" id="sync-status">Status: Local storage active</div>
+  </div>
+
+  <div class="card">
+    <h2>Attendance History</h2>
+    <ul class="logs" id="history-list">
+      <!-- Dynamic list -->
+    </ul>
+  </div>
+
+  <script>
+    // ==========================================
+    // CONFIGURATION
+    // Replace the string below with your Client ID from Google Cloud Console
+    // ==========================================
+    const CLIENT_ID = 'YOUR_COPIED_CLIENT_ID_HERE.apps.googleusercontent.com';
+    const SCOPES = 'https://www.googleapis.com/auth/drive.appdata';
+
+    let tokenClient;
+    let accessToken = null;
+
+    // App State stored in Local Storage
+    let state = JSON.parse(localStorage.getItem('mgr_attendance_data')) || {
+      logs: []
+    };
+
+    function saveState() {
+      localStorage.setItem('mgr_attendance_data', JSON.stringify(state));
+      render();
+      if (accessToken) {
+        syncToDrive();
+      }
+    }
+
+    function render() {
+      const logs = state.logs;
+      const total = logs.length;
+      const attended = logs.filter(l => l.status === 'Present' || l.status === 'On Duty').length;
+      const pct = total > 0 ? ((attended / total) * 100).toFixed(1) : 0;
+
+      document.getElementById('stat-total').innerText = total;
+      document.getElementById('stat-attended').innerText = attended;
+      document.getElementById('stat-pct').innerText = `${pct}%`;
+
+      const list = document.getElementById('history-list');
+      list.innerHTML = '';
+      
+      logs.slice().reverse().forEach(log => {
+        const li = document.createElement('li');
+        const badgeClass = log.status === 'Present' ? 'badge-present' : (log.status === 'Absent' ? 'badge-absent' : 'badge-od');
+        li.innerHTML = `
+          <span>${log.date}</span>
+          <span class="badge ${badgeClass}">${log.status}</span>
+        `;
+        list.appendChild(li);
+      });
+    }
+
+    function markAttendance(status) {
+      const today = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+      state.logs.push({ date: today, status: status, timestamp: Date.now() });
+      saveState();
+    }
+
+    // Google OAuth 2.0 Client Setup
+    window.onload = () => {
+      render();
+      if (typeof google !== 'undefined') {
+        tokenClient = google.accounts.oauth2.initTokenClient({
+          client_id: CLIENT_ID,
+          scope: SCOPES,
+          callback: async (response) => {
+            if (response.error !== undefined) {
+              throw response;
+            }
+            accessToken = response.access_token;
+            document.getElementById('auth-btn').innerText = '✅ Drive Connected';
+            document.getElementById('sync-status').innerText = 'Status: Auto-syncing to Google Drive';
+            await pullFromDrive();
+          },
+        });
+      }
+    };
+
+    function handleAuthClick() {
+      if (!tokenClient) {
+        alert('Google Auth is loading or CLIENT_ID is unconfigured.');
+        return;
+      }
+      if (accessToken === null) {
+        tokenClient.requestAccessToken({ prompt: 'consent' });
+      } else {
+        tokenClient.requestAccessToken({ prompt: '' });
+      }
+    }
+
+    // Google Drive AppData Folder Sync
+    async function syncToDrive() {
+      if (!accessToken) return;
+      document.getElementById('sync-status').innerText = 'Status: Syncing...';
+
+      try {
+        const searchRes = await fetch("https://www.googleapis.com/drive/v3/files?spaces=appDataFolder", {
+          headers: { Authorization: `Bearer ${accessToken}` }
+        });
+        const searchData = await searchRes.json();
+        const existingFile = searchData.files && searchData.files.find(f => f.name === 'mgr_attendance.json');
+
+        const fileContent = JSON.stringify(state);
+        const file = new Blob([fileContent], { type: 'application/json' });
+
+        if (existingFile) {
+          await fetch(`https://www.googleapis.com/upload/drive/v3/files/${existingFile.id}?uploadType=media`, {
+            method: 'PATCH',
+            headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+            body: file
+          });
+        } else {
+          const metadata = { name: 'mgr_attendance.json', parents: ['appDataFolder'] };
+          const form = new FormData();
+          form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
+          form.append('file', file);
+
+          await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${accessToken}` },
+            body: form
+          });
+        }
+        document.getElementById('sync-status').innerText = 'Status: Synced to Google Drive';
+      } catch (err) {
+        console.error(err);
+        document.getElementById('sync-status').innerText = 'Status: Local storage active (Drive sync failed)';
+      }
+    }
+
+    async function pullFromDrive() {
+      if (!accessToken) return;
+      try {
+        const searchRes = await fetch("https://www.googleapis.com/drive/v3/files?spaces=appDataFolder", {
+          headers: { Authorization: `Bearer ${accessToken}` }
+        });
+        const searchData = await searchRes.json();
+        const existingFile = searchData.files && searchData.files.find(f => f.name === 'mgr_attendance.json');
+
+        if (existingFile) {
+          const fileRes = await fetch(`https://www.googleapis.com/drive/v3/files/${existingFile.id}?alt=media`, {
+            headers: { Authorization: `Bearer ${accessToken}` }
+          });
+          const remoteState = await fileRes.json();
+          if (remoteState && remoteState.logs) {
+            state = remoteState;
+            localStorage.setItem('mgr_attendance_data', JSON.stringify(state));
+            render();
+          }
+        }
+      } catch (err) {
+        console.error("Cloud pull error:", err);
+      }
+    }
+  </script>
+</body>
+</html>
